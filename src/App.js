@@ -1,28 +1,26 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 
 import Container from 'react-bootstrap/Container';
 import Button from 'react-bootstrap/Button';
 import Card from 'react-bootstrap/Card';
-import Nav from 'react-bootstrap/Nav';
 import Navbar from 'react-bootstrap/Navbar';
 import Modal from 'react-bootstrap/Modal';
-import { SocialIcon } from 'react-social-icons';
 
 const axios = require('axios')
 import * as bitcoin from 'bitcoinjs-lib'
 import * as ecc from 'tiny-secp256k1'
 bitcoin.initEccLib(ecc)
 
-const GITHUB_URL = "https://github.com/dannydeezy/nosft"
 const App = () => {
-  const [nostrPublicKey, setNostrPublicKey] = useState(null);
+  const [publicKey, setPublicKey] = useState(null);
+  const [inputPublicKey, setInputPublicKey] = useState(null);
   const [showReceiveAddressModal, setShowReceiveAddressModal] = useState(false);
   const [ownedUtxos, setOwnedUtxos] = useState([]);
   const [utxosReady, setUtxosReady] = useState(false)
   useEffect(() => {
     async function fetchUtxosForAddress() {
-      if (!nostrPublicKey) return
+      if (!publicKey) return
       const address = getAddress()
       const response = await axios.get(`https://mempool.space/api/address/${address}/utxo`)
       setOwnedUtxos(response.data)
@@ -30,16 +28,10 @@ const App = () => {
       setUtxosReady(true)
     }
     fetchUtxosForAddress()
-  }, [nostrPublicKey]);
+  }, [publicKey]);
 
-  async function connectWallet() {
-    if (window.nostr && window.nostr.enable) {
-      await window.nostr.enable()
-    }
-    const pubkey = await window.nostr.getPublicKey()
-    if (pubkey) {
-      setNostrPublicKey(pubkey)
-    }
+  async function setWalletKey(publicKey) {
+    setPublicKey(publicKey)
   }
 
   function ordinalsUrl(utxo) {
@@ -49,18 +41,14 @@ const App = () => {
   function ordinalsImageUrl(utxo) {
     return `https://ordinals.com/content/${utxo.txid}i${utxo.vout}`
   }
-
-  function cloudfrontUrl(utxo) {
-    return `https://d2v3k2do8kym1f.cloudfront.net/minted-items/${utxo.txid}:${utxo.vout}`
-  }
-
   function shortenStr(str) {
     return str.substring(0, 8) + "..." + str.substring(str.length - 8, str.length)
   }
 
   function getAddress() {
-    console.log(nostrPublicKey)
-    const pubkeyBuffer = Buffer.from(nostrPublicKey, 'hex')
+    console.log('publicKey', publicKey)
+    console.log(publicKey)
+    const pubkeyBuffer = Buffer.from(publicKey, 'hex')
     return bitcoin.payments.p2tr({ pubkey: pubkeyBuffer, network: bitcoin.networks.bitcoin }).address;
   }
 
@@ -98,7 +86,7 @@ const App = () => {
             <img
               alt=""
               src={
-                it.status.confirmed ? ordinalsImageUrl(it) : cloudfrontUrl(it)
+                it.status.confirmed ? ordinalsImageUrl(it) : ''
               }
               style={{ width: "200px" }}
               className="mb-3"
@@ -117,11 +105,6 @@ const App = () => {
           <Navbar.Brand className="flex-row">
             Nosft
           </Navbar.Brand>
-          <Nav className="me-auto">
-            <Nav.Link onClick={() => window.open(GITHUB_URL)}>
-              <SocialIcon url={GITHUB_URL} />
-            </Nav.Link>
-          </Nav>
           <Navbar.Brand>
 
           </Navbar.Brand>
@@ -129,15 +112,18 @@ const App = () => {
       </Navbar>
       <Container className="main-container d-flex flex-column text-center align-items-center justify-content-center">
         {
-          nostrPublicKey ?
+          publicKey ?
             <div>
               <Button variant="primary" className="mx-3 shadowed-orange-small" onClick={() => setShowReceiveAddressModal(true)}>Show Receive Address</Button>
             </div>
             :
-            <Button variant="primary" className="mx-3 shadowed-orange-small" onClick={() => connectWallet()}>Connect Nostr (Alby, etc)</Button>
+            <>
+              <input onChange={(e) => setInputPublicKey(e.target.value)} />
+              <Button onClick={() => setWalletKey(inputPublicKey)}>Sneek peak wallet address</Button>
+            </>
         }
         <br /><br />
-        {nostrPublicKey ?
+        {publicKey ?
           <>
             {utxoInfo()}
           </>
@@ -158,7 +144,7 @@ const App = () => {
           <Modal.Title>Receive Address</Modal.Title>
         </Modal.Header>
         <Modal.Body className="px-5 py-3">
-          {nostrPublicKey ?
+          {publicKey ?
             <div>{getAddress()}</div>
             :
             <></>
